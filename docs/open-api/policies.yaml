@@ -517,8 +517,30 @@ components:
 
     IcebergSnapshotExpirationContent:
       type: object
-      description: Placeholder content for system_iceberg_snapshot_expiration. Configurable thresholds land in a follow-up.
+      description: >
+        Snapshot expiration options for system_iceberg_snapshot_expiration. Scheduling is
+        configured separately. On updateContent, newContent fully replaces the previous content;
+        omitted fields use these defaults rather than merging with stored values. Integer fields
+        must be JSON integers (not strings or floats); streamResults must be a JSON boolean.
       additionalProperties: false
+      properties:
+        olderThanDays:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 36500
+          default: 5
+          description: Minimum age of snapshots eligible for expiration, in days (Iceberg default).
+        retainLast:
+          type: integer
+          format: int64
+          minimum: 1
+          default: 1
+          description: Minimum number of recent snapshots to keep regardless of age.
+        streamResults:
+          type: boolean
+          default: false
+          description: Whether the expire job should stream intermediate delete results.
 
     IcebergSnapshotExpirationPolicy:
       allOf:
@@ -555,11 +577,11 @@ components:
           minLength: 1
           pattern: '[\s\S]*\S[\s\S]*'
           description: >-
-            A complete restricted-rego-v1 row-filter program beginning with `filter :=`.
-            Results and conditions must be Boolean. The program may use col("name"),
-            session_user(), is_group_member("group"), literals, comparisons, in, and/or/not,
-            including ordered `else := ... if ...` branches with a final `else`. The UTF-8 source
-            must not exceed 16 KiB; see the Policies documentation for grammar, limits, and examples.
+            A complete restricted-sql-v1 definition such as
+            `(region STRING) RETURNS BOOLEAN -> region = 'US'`.
+            Parameters must be declared and the body must return BOOLEAN. SQL CASE, predicates,
+            and allowlisted context and scalar functions are supported. The UTF-8 source must
+            not exceed 16 KiB; see the Policies documentation for grammar, types and limits.
 
     ColumnMaskContent:
       type: object
@@ -572,11 +594,12 @@ components:
           minLength: 1
           pattern: '[\s\S]*\S[\s\S]*'
           description: >-
-            A complete restricted-rego-v1 column-mask program beginning with
-            `mask := action("...")`. Conditions are optional, must use only trusted request
-            context, and require ordered `else := action(...) if ...` branches plus a final
-            `else`. The UTF-8 source must not exceed 16 KiB; see the Policies documentation for
-            allowlisted actions, grammar, limits, and examples.
+            A complete restricted-sql-v1 definition such as
+            `(value STRING) RETURNS STRING -> show_last_4(value)`.
+            Exactly one parameter is required; its type must equal the return type. Its local
+            name is independent of the selected column name. The body may use SQL CASE,
+            literals, NULL, and allowlisted functions. The UTF-8 source must not exceed 16 KiB;
+            see the Policies documentation for grammar, types and limits.
 
     AccessControlContent:
       type: object
